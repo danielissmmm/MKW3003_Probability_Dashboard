@@ -1,8 +1,6 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
 from scipy.stats import norm, poisson
 
 st.set_page_config(page_title="MKW3003 Dashboard", layout="wide")
@@ -46,43 +44,25 @@ with col2:
     st.write(f"Expected Option Payoff: RM{expected_payoff:.2f}")
     st.write(f"Variance of Option Payoff: RM{var_payoff:.2f}")
 
-# Stock tree visualization using plotly
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=[0, 1, 1],
-    y=[0, -1, 1],
-    mode='markers+text',
-    marker=dict(size=50, color='lightblue', line=dict(color='black', width=2)),
-    text=[f'RM{S0:.2f}', f'RM{down_price:.2f}', f'RM{up_price:.2f}'],
-    textposition='middle center',
-    hoverinfo='none'
-))
-fig.update_layout(
-    title="Stock Price Tree",
-    xaxis=dict(tickvals=[0, 1], ticktext=['T=0', 'T=1']),
-    yaxis=dict(showticklabels=False),
-    showlegend=False,
-    height=400
-)
-st.plotly_chart(fig, use_container_width=True)
+# Simple stock tree visualization using dataframe
+st.subheader("Stock Price Tree")
+tree_data = pd.DataFrame({
+    'Period': ['T=0', 'T=1', 'T=1'],
+    'Price': [S0, down_price, up_price],
+    'Level': ['Start', 'Down', 'Up']
+})
+st.dataframe(tree_data, hide_index=True)
 
-# Option payoff chart
-fig2 = go.Figure()
-fig2.add_trace(go.Bar(
-    x=['Up', 'Down'],
-    y=[option_payoff, 0],
-    marker_color=['green', 'red'],
-    text=[f'P={p:.2f}', f'P={1-p:.2f}'],
-    textposition='outside'
-))
-fig2.add_hline(y=expected_payoff, line_dash="dash", line_color="orange", 
-               annotation_text=f'Expected: RM{expected_payoff:.2f}')
-fig2.update_layout(
-    title="Option Payoff Distribution",
-    yaxis_title="Payoff Amount (RM)",
-    height=400
-)
-st.plotly_chart(fig2, use_container_width=True)
+# Option payoff bar chart using st.bar_chart
+st.subheader("Option Payoff Distribution")
+payoff_data = pd.DataFrame({
+    'Outcome': ['Up', 'Down'],
+    'Payoff': [option_payoff, 0],
+    'Probability': [p, 1-p]
+})
+st.bar_chart(payoff_data.set_index('Outcome')['Payoff'])
+st.write(f"Expected Payoff: RM{expected_payoff:.2f}")
+st.write(f"Variance: RM{var_payoff:.2f}")
 
 st.markdown("---")
 
@@ -108,29 +88,15 @@ with col4:
     var_95 = norm.ppf(0.05, m, sigma)
     st.write(f"95% VaR: {var_95:.2%}")
 
-# Normal distribution plot using plotly
+# Normal distribution using st.line_chart
+st.subheader("Normal Distribution of Returns")
 x = np.linspace(m - 4*sigma, m + 4*sigma, 1000)
 y = norm.pdf(x, m, sigma)
-
-fig3 = go.Figure()
-fig3.add_trace(go.Scatter(x=x, y=y, mode='lines', name='Normal Distribution', line=dict(color='blue')))
-fig3.add_vline(x=m, line_dash="dash", line_color="red", annotation_text=f'Mean: {m:.2%}')
-fig3.add_vline(x=interval_68[0], line_dash="dot", line_color="green", opacity=0.7)
-fig3.add_vline(x=interval_68[1], line_dash="dot", line_color="green", opacity=0.7)
-fig3.add_vline(x=interval_95[0], line_dash="dot", line_color="orange", opacity=0.7)
-fig3.add_vline(x=interval_95[1], line_dash="dot", line_color="orange", opacity=0.7)
-
-fig3.add_vrect(x0=interval_68[0], x1=interval_68[1], fillcolor="green", opacity=0.2, annotation_text="67%")
-fig3.add_vrect(x0=interval_95[0], x1=interval_95[1], fillcolor="yellow", opacity=0.1, annotation_text="95%")
-
-fig3.update_layout(
-    title="Normal Distribution of Returns",
-    xaxis_title="Return",
-    yaxis_title="Probability Density",
-    xaxis_tickformat='.0%',
-    height=400
-)
-st.plotly_chart(fig3, use_container_width=True)
+norm_data = pd.DataFrame({
+    'Return': x,
+    'Probability': y
+})
+st.line_chart(norm_data.set_index('Return'))
 
 # Risk Critique
 with st.expander("⚠️ Click to read: Why Gaussian Models Underestimate Risk"):
@@ -168,31 +134,19 @@ with col6:
     st.write(f"P(X = {k}) = {prob_exact:.6f} ({prob_exact:.2%})")
     st.write(f"P(X ≤ {k}) = {prob_leq:.6f} ({prob_leq:.2%})")
 
-# Poisson distribution plot
+# Poisson distribution using st.bar_chart
+st.subheader("Poisson Distribution of Order Arrivals")
 max_x = int(max(20, lambda_param * 3))
 x_poisson = np.arange(0, max_x + 1)
 y_poisson = poisson.pmf(x_poisson, lambda_param)
+poisson_data = pd.DataFrame({
+    'Orders': x_poisson,
+    'Probability': y_poisson
+})
+st.bar_chart(poisson_data.set_index('Orders'))
 
-fig4 = go.Figure()
-colors = ['steelblue'] * len(x_poisson)
-if k <= max_x:
-    colors[k] = 'red'
-
-fig4.add_trace(go.Bar(
-    x=x_poisson, 
-    y=y_poisson,
-    marker_color=colors,
-    text=[f'{v:.4f}' if v > 0.01 else '' for v in y_poisson],
-    textposition='outside'
-))
-fig4.add_vline(x=lambda_param, line_dash="dash", line_color="red", annotation_text=f'Mean = {lambda_param:.2f}')
-fig4.update_layout(
-    title="Poisson Distribution of Order Arrivals",
-    xaxis_title="Number of Orders per Millisecond",
-    yaxis_title="Probability",
-    height=400
-)
-st.plotly_chart(fig4, use_container_width=True)
+# Highlight the specific k value
+st.write(f"P(X = {k}) = {prob_exact:.6f} ({prob_exact:.2%})")
 
 # Simulation
 with st.expander("📊 Click to see arrival simulation"):
@@ -201,53 +155,54 @@ with st.expander("📊 Click to see arrival simulation"):
     np.random.seed(42)
     simulated = np.random.poisson(lambda_param, n_sim)
     
-    # Time series
-    fig5 = go.Figure()
-    fig5.add_trace(go.Scatter(
-        x=list(range(n_sim)),
-        y=simulated,
-        mode='lines',
-        name='Simulated',
-        line=dict(color='blue')
-    ))
-    fig5.add_hline(y=lambda_param, line_dash="dash", line_color="red", annotation_text=f'Mean = {lambda_param:.2f}')
-    fig5.update_layout(
-        title="Simulated Arrivals Over Time",
-        xaxis_title="Millisecond",
-        yaxis_title="Number of Orders",
-        height=300
-    )
-    st.plotly_chart(fig5, use_container_width=True)
+    # Show simulation data
+    sim_data = pd.DataFrame({
+        'Millisecond': range(n_sim),
+        'Orders': simulated
+    })
+    st.line_chart(sim_data.set_index('Millisecond'))
     
-    # Histogram
-    hist_values, bin_edges = np.histogram(simulated, bins=range(max(simulated)+2), density=True)
-    fig6 = go.Figure()
-    fig6.add_trace(go.Bar(
-        x=bin_edges[:-1],
-        y=hist_values,
-        name='Empirical',
-        marker_color='steelblue',
-        opacity=0.7
-    ))
-    fig6.add_trace(go.Scatter(
-        x=x_poisson,
-        y=poisson.pmf(x_poisson, lambda_param),
-        mode='lines+markers',
-        name='Theoretical',
-        line=dict(color='red', width=2)
-    ))
-    fig6.update_layout(
-        title="Empirical vs Theoretical Distribution",
-        xaxis_title="Number of Orders",
-        yaxis_title="Probability",
-        height=300
-    )
-    st.plotly_chart(fig6, use_container_width=True)
-    
+    # Show statistics
     col_s1, col_s2, col_s3 = st.columns(3)
     col_s1.metric("Simulated Mean", f"{np.mean(simulated):.2f}")
     col_s2.metric("Simulated Variance", f"{np.var(simulated):.2f}")
     col_s3.metric("Max Arrivals", f"{max(simulated)}")
+    
+    # Show histogram data
+    hist_values = np.bincount(simulated) / n_sim
+    hist_df = pd.DataFrame({
+        'Orders': range(len(hist_values)),
+        'Probability': hist_values
+    })
+    st.bar_chart(hist_df.set_index('Orders'))
+
+st.markdown("---")
+
+# Summary
+st.subheader("📋 Summary of Key Results")
+
+summary_data = {
+    "Problem": [
+        "Binomial Stock Price - Expected Log Return",
+        "Binomial Stock Price - Variance of Log Return",
+        "Binomial Option - Expected Payoff",
+        "Normal Distribution - 67% Interval",
+        "Normal Distribution - 95% Interval",
+        "Poisson Distribution - Expected Value",
+        "Poisson Distribution - Variance"
+    ],
+    "Value": [
+        f"{E_Y:.6f}",
+        f"{Var_Y:.6f}",
+        f"RM{expected_payoff:.2f}",
+        f"[{interval_68[0]:.2%}, {interval_68[1]:.2%}]",
+        f"[{interval_95[0]:.2%}, {interval_95[1]:.2%}]",
+        f"{lambda_param:.2f}",
+        f"{lambda_param:.2f}"
+    ]
+}
+
+st.dataframe(pd.DataFrame(summary_data), hide_index=True)
 
 st.markdown("---")
 st.caption("MKW3003 Probability Theory in Finance | Group Assignment")
