@@ -1,13 +1,8 @@
 import streamlit as st
-import sys
-import os
-
-# Force matplotlib to use Agg backend (no GUI)
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
 from scipy.stats import norm, poisson
 
 st.set_page_config(page_title="MKW3003 Dashboard", layout="wide")
@@ -35,13 +30,11 @@ with col2:
     up_price = S0 * u
     down_price = S0 * d
     
-    # Log return
     Y_up = np.log(u)
     Y_down = np.log(d)
     E_Y = p * Y_up + (1 - p) * Y_down
     Var_Y = p * (Y_up**2) + (1-p) * (Y_down**2) - E_Y**2
     
-    # Option payoff
     expected_payoff = p * option_payoff
     var_payoff = p * (option_payoff - expected_payoff)**2 + (1-p) * (0 - expected_payoff)**2
     
@@ -53,33 +46,43 @@ with col2:
     st.write(f"Expected Option Payoff: RM{expected_payoff:.2f}")
     st.write(f"Variance of Option Payoff: RM{var_payoff:.2f}")
 
-# Visualizations for Problem 1
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+# Stock tree visualization using plotly
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=[0, 1, 1],
+    y=[0, -1, 1],
+    mode='markers+text',
+    marker=dict(size=50, color='lightblue', line=dict(color='black', width=2)),
+    text=[f'RM{S0:.2f}', f'RM{down_price:.2f}', f'RM{up_price:.2f}'],
+    textposition='middle center',
+    hoverinfo='none'
+))
+fig.update_layout(
+    title="Stock Price Tree",
+    xaxis=dict(tickvals=[0, 1], ticktext=['T=0', 'T=1']),
+    yaxis=dict(showticklabels=False),
+    showlegend=False,
+    height=400
+)
+st.plotly_chart(fig, use_container_width=True)
 
-# Stock tree
-nodes = [(0, 0, S0), (1, 0, down_price), (1, 1, up_price)]
-x_pos = [0, 1, 1]
-y_pos = [0, -1, 1]
-
-for i, (x, y, price) in enumerate(zip(x_pos, y_pos, [S0, down_price, up_price])):
-    ax1.scatter(x, y, s=300, c='lightblue', edgecolors='black')
-    ax1.annotate(f'RM{price:.2f}', (x, y), ha='center', va='center')
-
-ax1.plot([0,1], [0,-1], 'k-')
-ax1.plot([0,1], [0,1], 'k-')
-ax1.set_title("Stock Price Tree")
-ax1.set_xticks([0,1])
-ax1.set_xticklabels(['T=0', 'T=1'])
-ax1.set_yticks([])
-
-# Option payoff
-ax2.bar(['Up', 'Down'], [option_payoff, 0], color=['green', 'red'])
-ax2.axhline(y=expected_payoff, color='orange', linestyle='--', label=f'Expected: RM{expected_payoff:.2f}')
-ax2.set_title("Option Payoff")
-ax2.legend()
-ax2.set_ylabel("Payoff (RM)")
-
-st.pyplot(fig)
+# Option payoff chart
+fig2 = go.Figure()
+fig2.add_trace(go.Bar(
+    x=['Up', 'Down'],
+    y=[option_payoff, 0],
+    marker_color=['green', 'red'],
+    text=[f'P={p:.2f}', f'P={1-p:.2f}'],
+    textposition='outside'
+))
+fig2.add_hline(y=expected_payoff, line_dash="dash", line_color="orange", 
+               annotation_text=f'Expected: RM{expected_payoff:.2f}')
+fig2.update_layout(
+    title="Option Payoff Distribution",
+    yaxis_title="Payoff Amount (RM)",
+    height=400
+)
+st.plotly_chart(fig2, use_container_width=True)
 
 st.markdown("---")
 
@@ -95,7 +98,6 @@ with col3:
     sigma = st.slider("Volatility (σ)", 0.05, 0.40, 0.15, 0.01, format="%.2f")
 
 with col4:
-    # Calculate intervals
     interval_68 = (m - sigma, m + sigma)
     interval_95 = (m - 2*sigma, m + 2*sigma)
     
@@ -103,33 +105,32 @@ with col4:
     st.write(f"67% (1σ): [{interval_68[0]:.2%}, {interval_68[1]:.2%}]")
     st.write(f"95% (2σ): [{interval_95[0]:.2%}, {interval_95[1]:.2%}]")
     
-    # VaR
     var_95 = norm.ppf(0.05, m, sigma)
     st.write(f"95% VaR: {var_95:.2%}")
 
-# Plot normal distribution
-fig, ax = plt.subplots(figsize=(10, 5))
+# Normal distribution plot using plotly
 x = np.linspace(m - 4*sigma, m + 4*sigma, 1000)
 y = norm.pdf(x, m, sigma)
 
-ax.plot(x, y, 'b-', linewidth=2)
-ax.axvline(x=m, color='red', linestyle='--', label=f'Mean: {m:.2%}')
-ax.axvline(x=interval_68[0], color='green', linestyle=':', alpha=0.7)
-ax.axvline(x=interval_68[1], color='green', linestyle=':', alpha=0.7)
-ax.axvline(x=interval_95[0], color='orange', linestyle=':', alpha=0.7)
-ax.axvline(x=interval_95[1], color='orange', linestyle=':', alpha=0.7)
+fig3 = go.Figure()
+fig3.add_trace(go.Scatter(x=x, y=y, mode='lines', name='Normal Distribution', line=dict(color='blue')))
+fig3.add_vline(x=m, line_dash="dash", line_color="red", annotation_text=f'Mean: {m:.2%}')
+fig3.add_vline(x=interval_68[0], line_dash="dot", line_color="green", opacity=0.7)
+fig3.add_vline(x=interval_68[1], line_dash="dot", line_color="green", opacity=0.7)
+fig3.add_vline(x=interval_95[0], line_dash="dot", line_color="orange", opacity=0.7)
+fig3.add_vline(x=interval_95[1], line_dash="dot", line_color="orange", opacity=0.7)
 
-ax.fill_between(x, y, where=(x >= interval_68[0]) & (x <= interval_68[1]), alpha=0.3, color='green', label='67%')
-ax.fill_between(x, y, where=(x >= interval_95[0]) & (x <= interval_95[1]), alpha=0.2, color='yellow', label='95%')
+fig3.add_vrect(x0=interval_68[0], x1=interval_68[1], fillcolor="green", opacity=0.2, annotation_text="67%")
+fig3.add_vrect(x0=interval_95[0], x1=interval_95[1], fillcolor="yellow", opacity=0.1, annotation_text="95%")
 
-ax.set_xlabel("Return")
-ax.set_ylabel("Probability Density")
-ax.set_title("Normal Distribution of Returns")
-ax.legend()
-ax.grid(True, alpha=0.3)
-ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.0%}'))
-
-st.pyplot(fig)
+fig3.update_layout(
+    title="Normal Distribution of Returns",
+    xaxis_title="Return",
+    yaxis_title="Probability Density",
+    xaxis_tickformat='.0%',
+    height=400
+)
+st.plotly_chart(fig3, use_container_width=True)
 
 # Risk Critique
 with st.expander("⚠️ Click to read: Why Gaussian Models Underestimate Risk"):
@@ -141,7 +142,7 @@ with st.expander("⚠️ Click to read: Why Gaussian Models Underestimate Risk")
     3. **Liquidity Risk** - Markets can become illiquid during crashes
     4. **2008 Crisis Example** - 6-sigma events occurred that should be virtually impossible
     
-    **Conclusion:** Use fat-tailed distributions (Student's t, Extreme Value Theory) for better risk management.
+    **Conclusion:** Use fat-tailed distributions for better risk management.
     """)
 
 st.markdown("---")
@@ -158,7 +159,6 @@ with col5:
     k = st.number_input("Number of Orders (k)", value=2, step=1, min_value=0)
 
 with col6:
-    # Calculations
     prob_exact = poisson.pmf(k, lambda_param)
     prob_leq = poisson.cdf(k, lambda_param)
     
@@ -168,30 +168,31 @@ with col6:
     st.write(f"P(X = {k}) = {prob_exact:.6f} ({prob_exact:.2%})")
     st.write(f"P(X ≤ {k}) = {prob_leq:.6f} ({prob_leq:.2%})")
 
-# Plot Poisson distribution
-fig, ax = plt.subplots(figsize=(10, 5))
+# Poisson distribution plot
 max_x = int(max(20, lambda_param * 3))
 x_poisson = np.arange(0, max_x + 1)
 y_poisson = poisson.pmf(x_poisson, lambda_param)
 
-bars = ax.bar(x_poisson, y_poisson, alpha=0.7, color='steelblue')
+fig4 = go.Figure()
+colors = ['steelblue'] * len(x_poisson)
 if k <= max_x:
-    bars[k].set_color('red')
-    bars[k].set_edgecolor('darkred')
-    bars[k].set_linewidth(2)
+    colors[k] = 'red'
 
-ax.axvline(x=lambda_param, color='red', linestyle='--', label=f'Mean = {lambda_param:.2f}')
-ax.set_xlabel("Number of Orders per Millisecond")
-ax.set_ylabel("Probability")
-ax.set_title("Poisson Distribution of Order Arrivals")
-ax.legend()
-ax.grid(True, alpha=0.3)
-
-if k <= max_x:
-    ax.text(k, y_poisson[k] + 0.01, f'P(X={k}) = {y_poisson[k]:.4f}', 
-            ha='center', fontweight='bold', color='red')
-
-st.pyplot(fig)
+fig4.add_trace(go.Bar(
+    x=x_poisson, 
+    y=y_poisson,
+    marker_color=colors,
+    text=[f'{v:.4f}' if v > 0.01 else '' for v in y_poisson],
+    textposition='outside'
+))
+fig4.add_vline(x=lambda_param, line_dash="dash", line_color="red", annotation_text=f'Mean = {lambda_param:.2f}')
+fig4.update_layout(
+    title="Poisson Distribution of Order Arrivals",
+    xaxis_title="Number of Orders per Millisecond",
+    yaxis_title="Probability",
+    height=400
+)
+st.plotly_chart(fig4, use_container_width=True)
 
 # Simulation
 with st.expander("📊 Click to see arrival simulation"):
@@ -200,27 +201,48 @@ with st.expander("📊 Click to see arrival simulation"):
     np.random.seed(42)
     simulated = np.random.poisson(lambda_param, n_sim)
     
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
+    # Time series
+    fig5 = go.Figure()
+    fig5.add_trace(go.Scatter(
+        x=list(range(n_sim)),
+        y=simulated,
+        mode='lines',
+        name='Simulated',
+        line=dict(color='blue')
+    ))
+    fig5.add_hline(y=lambda_param, line_dash="dash", line_color="red", annotation_text=f'Mean = {lambda_param:.2f}')
+    fig5.update_layout(
+        title="Simulated Arrivals Over Time",
+        xaxis_title="Millisecond",
+        yaxis_title="Number of Orders",
+        height=300
+    )
+    st.plotly_chart(fig5, use_container_width=True)
     
-    ax1.plot(simulated, 'b-', alpha=0.7)
-    ax1.axhline(y=lambda_param, color='red', linestyle='--', label=f'Mean = {lambda_param:.2f}')
-    ax1.set_xlabel("Millisecond")
-    ax1.set_ylabel("Orders")
-    ax1.set_title("Simulated Arrivals Over Time")
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-    
-    ax2.hist(simulated, bins=range(max(simulated)+2), density=True, alpha=0.7, color='steelblue')
-    x_hist = np.arange(0, max(simulated)+1)
-    y_hist = poisson.pmf(x_hist, lambda_param)
-    ax2.plot(x_hist, y_hist, 'r-', linewidth=2, label='Theoretical')
-    ax2.set_xlabel("Orders")
-    ax2.set_ylabel("Probability")
-    ax2.set_title("Empirical vs Theoretical")
-    ax2.legend()
-    
-    plt.tight_layout()
-    st.pyplot(fig)
+    # Histogram
+    hist_values, bin_edges = np.histogram(simulated, bins=range(max(simulated)+2), density=True)
+    fig6 = go.Figure()
+    fig6.add_trace(go.Bar(
+        x=bin_edges[:-1],
+        y=hist_values,
+        name='Empirical',
+        marker_color='steelblue',
+        opacity=0.7
+    ))
+    fig6.add_trace(go.Scatter(
+        x=x_poisson,
+        y=poisson.pmf(x_poisson, lambda_param),
+        mode='lines+markers',
+        name='Theoretical',
+        line=dict(color='red', width=2)
+    ))
+    fig6.update_layout(
+        title="Empirical vs Theoretical Distribution",
+        xaxis_title="Number of Orders",
+        yaxis_title="Probability",
+        height=300
+    )
+    st.plotly_chart(fig6, use_container_width=True)
     
     col_s1, col_s2, col_s3 = st.columns(3)
     col_s1.metric("Simulated Mean", f"{np.mean(simulated):.2f}")
