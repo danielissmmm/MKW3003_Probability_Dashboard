@@ -6,7 +6,7 @@ from scipy.stats import norm, poisson
 
 st.set_page_config(page_title="MKW3003 Dashboard", layout="wide")
 
-st.title("📊 MKW3003 Probability Dashboard")
+st.title("📊 MKW3003 Probability Dashboard - Group Project")
 st.markdown("---")
 
 # ============================================
